@@ -42,6 +42,9 @@ const defaults = {
   // Friction while scaling
   zoomFriction: 0.74,
 
+  // Flat transition
+  flatTransition: false,
+
   // Bounciness after hitting the edge
   bounceForce: 0.2,
 
@@ -903,10 +906,17 @@ export class Panzoom extends Base {
     this.setEdgeForce();
     this.setDragForce();
 
-    this.velocity.x *= this.friction;
-    this.velocity.y *= this.friction;
+    if (this.flatTransition) {
+      this.velocity.x = this.friction;
+      this.velocity.y = this.friction;
 
-    this.velocity.scale *= this.friction;
+      this.velocity.scale = this.friction;
+    } else {
+      this.velocity.x *= this.friction;
+      this.velocity.y *= this.friction;
+
+      this.velocity.scale *= this.friction;
+    }
 
     this.content.x += this.velocity.x;
     this.content.y += this.velocity.y;
