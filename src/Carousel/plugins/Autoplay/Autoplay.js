@@ -3,6 +3,7 @@ import { isPlainObject } from "../../../shared/utils/isPlainObject.js";
 const defaults = {
   timeout: 3000,
   hoverPause: true,
+  flatXTransition: false,
 };
 
 export class Autoplay {
@@ -47,11 +48,15 @@ export class Autoplay {
   set() {
     this.clear();
 
-    this.timer = setTimeout(() => {
-      if (this.state === "play") {
-        this.carousel.slideTo(this.carousel.pageIndex + 1);
-      }
-    }, this.carousel.option("Autoplay.timeout"));
+    if (this.carousel.option("Panzoom.flatXTransition")) {
+      this.carousel.slideTo(this.carousel.pageIndex + 1);
+    } else {
+      this.timer = setTimeout(() => {
+        if (this.state === "play") {
+          this.carousel.slideTo(this.carousel.pageIndex + 1);
+        }
+      }, this.carousel.option("Autoplay.timeout"));
+    }
   }
 
   clear() {

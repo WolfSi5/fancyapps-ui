@@ -43,7 +43,7 @@ const defaults = {
   zoomFriction: 0.74,
 
   // Flat transition
-  flatTransition: false,
+  flatXTransition: false,
 
   // Bounciness after hitting the edge
   bounceForce: 0.2,
@@ -195,6 +195,7 @@ export class Panzoom extends Base {
 
       // Current position; these values reflect CSS `transform` value
       x: this.option("x", 0),
+      metaX: this.option("x", 0),
       y: this.option("y", 0),
 
       // Current scale; does not reflect CSS `transform` value
@@ -204,6 +205,7 @@ export class Panzoom extends Base {
     // End values of current pan / zoom animation
     this.transform = {
       x: 0,
+      metaX: 0,
       y: 0,
       scale: 1,
     };
@@ -439,6 +441,7 @@ export class Panzoom extends Base {
         const scaleDiff = prevDistance && newDistance ? newDistance / prevDistance : 1;
 
         this.dragOffset.x += panX;
+        this.dragOffset.metaX += panX;
         this.dragOffset.y += panY;
 
         this.dragOffset.scale *= scaleDiff;
@@ -449,6 +452,11 @@ export class Panzoom extends Base {
 
         if (axisToLock && !this.lockAxis) {
           if (Math.abs(this.dragOffset.x) < 6 && Math.abs(this.dragOffset.y) < 6) {
+            event.preventDefault();
+            return;
+          }
+
+          if (Math.abs(this.dragOffset.metaX) < 6 && Math.abs(this.dragOffset.y) < 6) {
             event.preventDefault();
             return;
           }
@@ -475,6 +483,7 @@ export class Panzoom extends Base {
 
         if (!(this.transform.scale === this.option("baseScale") && this.lockAxis === "y")) {
           this.dragPosition.x = this.dragStart.x + this.dragOffset.x;
+          this.dragPosition.metaX = this.dragStart.metaX + this.dragOffset.metaX;
         }
 
         if (!(this.transform.scale === this.option("baseScale") && this.lockAxis === "x")) {
@@ -492,6 +501,7 @@ export class Panzoom extends Base {
           const { deltaX, deltaY } = this.getZoomDelta(this.content.scale * this.dragOffset.scale, xPos, yPos);
 
           this.dragPosition.x -= deltaX;
+          this.dragPosition.metaX -= deltaX;
           this.dragPosition.y -= deltaY;
 
           this.dragPosition.midPoint = newMidpoint;
@@ -502,6 +512,7 @@ export class Panzoom extends Base {
         // Update final position
         this.transform = {
           x: this.dragPosition.x,
+          metaX: this.dragPosition.metaX,
           y: this.dragPosition.y,
           scale: this.dragPosition.scale,
         };
@@ -618,15 +629,17 @@ export class Panzoom extends Base {
 
     this.velocity = {
       x: 0,
+      metaX: 0,
       y: 0,
       scale: 0,
     };
 
-    const { x, y, scale } = this.content;
+    const { x, metaX, y, scale } = this.content;
 
     this.dragStart = {
       rect: this.$content.getBoundingClientRect(),
       x,
+      metaX,
       y,
       scale,
     };
@@ -634,12 +647,14 @@ export class Panzoom extends Base {
     this.dragPosition = {
       ...this.dragPosition,
       x,
+      metaX,
       y,
       scale,
     };
 
     this.dragOffset = {
       x: 0,
+      metaX: 0,
       y: 0,
       scale: 1,
       time: 0,
@@ -843,6 +858,7 @@ export class Panzoom extends Base {
    */
   panTo({
     x = this.content.x,
+    metaX = this.content.metaX,
     y = this.content.y,
     scale,
     friction = this.option("friction"),
@@ -855,6 +871,7 @@ export class Panzoom extends Base {
 
       if (boundX) {
         x = Math.max(Math.min(x, boundX.to), boundX.from);
+        metaX = Math.max(Math.min(metaX, boundX.to), boundX.from);
       }
 
       if (boundY) {
@@ -867,6 +884,7 @@ export class Panzoom extends Base {
     this.transform = {
       ...this.transform,
       x,
+      metaX,
       y,
       scale,
     };
@@ -875,7 +893,8 @@ export class Panzoom extends Base {
       this.state = "panning";
 
       this.velocity = {
-        x: (1 / this.friction - 1) * (x - this.content.x),
+        x: this.options.flatXTransition ? (1 / this.friction - 1) * 10 * (x - this.content.x) / Math.abs(x - this.content.x) : (1 / this.friction - 1) * (x - this.content.x),
+        metaX: (1 / this.friction - 1) * (metaX - this.content.metaX),
         y: (1 / this.friction - 1) * (y - this.content.y),
         scale: (1 / this.friction - 1) * (scale - this.content.scale),
       };
@@ -906,22 +925,32 @@ export class Panzoom extends Base {
     this.setEdgeForce();
     this.setDragForce();
 
-    if (this.flatTransition) {
-      this.velocity.x = this.friction;
-      this.velocity.y = this.friction;
+    this.velocity.metaX *= this.friction;
 
-      this.velocity.scale = this.friction;
-    } else {
-      this.velocity.x *= this.friction;
-      this.velocity.y *= this.friction;
-
-      this.velocity.scale *= this.friction;
+    if (Math.abs(this.velocity.metaX) < 0.05) {
+      this.velocity.metaX = 0;
     }
 
+    if (!this.options.flatXTransition) {
+      this.velocity.x *= this.friction;
+    }
+
+    this.velocity.y *= this.friction;
+
+    this.velocity.scale *= this.friction;
+
     this.content.x += this.velocity.x;
+    this.content.metaX += this.velocity.metaX;
     this.content.y += this.velocity.y;
 
     this.content.scale += this.velocity.scale;
+
+    if (this.options.flatXTransition &&
+      this.velocity.metaX === 0 &&
+      Math.abs(Math.abs(this.content.x) - Math.abs(this.content.metaX)) < (1 / this.friction - 1) * this.friction * 25 ) {
+      this.content.x = this.content.metaX;
+      this.velocity.x = 0;
+    }
 
     if (this.isAnimating()) {
       this.setTransform();
@@ -1004,16 +1033,24 @@ export class Panzoom extends Base {
     if (pastLeft || pastRight) {
       const bound = pastLeft ? boundX.from : boundX.to;
       const distance = bound - this.content.x;
+      const metaDistance = bound - this.content.metaX;
 
       let force = distance * bounceForce;
+      let metaForce = metaDistance * bounceForce;
 
       const restX = this.content.x + (this.velocity.x + force) / this.friction;
+      const metaRestX = this.content.metaX + (this.velocity.metaX + metaForce) / this.friction;
 
       if (restX >= boundX.from && restX <= boundX.to) {
         force += this.velocity.x;
       }
 
-      this.velocity.x = force;
+      if (metaRestX >= boundX.from && metaRestX <= boundX.to) {
+        metaForce += this.velocity.metaX;
+      }
+
+      this.velocity.x = metaForce;
+      this.velocity.metaX = metaForce;
 
       this.recalculateTransform();
     }
@@ -1063,6 +1100,7 @@ export class Panzoom extends Base {
       const distance = bound - this.dragPosition.x;
 
       this.dragPosition.x = bound - distance * 0.3;
+      this.dragPosition.metaX = bound - distance * 0.3;
     }
 
     if ((pastTop || pastBottom) && !(pastTop && pastBottom)) {
@@ -1079,6 +1117,7 @@ export class Panzoom extends Base {
   setDragForce() {
     if (this.state === "pointerdown") {
       this.velocity.x = this.dragPosition.x - this.content.x;
+      this.velocity.metaX = this.dragPosition.metaX - this.content.metaX;
       this.velocity.y = this.dragPosition.y - this.content.y;
       this.velocity.scale = this.dragPosition.scale - this.content.scale;
     }
@@ -1089,6 +1128,7 @@ export class Panzoom extends Base {
    */
   recalculateTransform() {
     this.transform.x = this.content.x + this.velocity.x / (1 / this.friction - 1);
+    this.transform.metaX = this.content.metaX + this.velocity.metaX / (1 / this.friction - 1);
     this.transform.y = this.content.y + this.velocity.y / (1 / this.friction - 1);
     this.transform.scale = this.content.scale + this.velocity.scale / (1 / this.friction - 1);
   }
@@ -1108,22 +1148,24 @@ export class Panzoom extends Base {
    * Set content `style.transform` value based on current animation frame
    */
   setTransform(final) {
-    let x, y, scale;
+    let x, metaX, y, scale;
 
     if (final) {
       x = round(this.transform.x);
+      metaX = round(this.transform.metaX);
       y = round(this.transform.y);
 
       scale = this.transform.scale;
 
-      this.content = { ...this.content, x, y, scale };
+      this.content = { ...this.content, x, metaX, y, scale };
     } else {
       x = round(this.content.x);
+      metaX = round(this.content.metaX);
       y = round(this.content.y);
 
       scale = this.content.scale / (this.content.width / this.content.fitWidth);
 
-      this.content = { ...this.content, x, y };
+      this.content = { ...this.content, x, metaX, y };
     }
 
     this.trigger("beforeTransform");
@@ -1166,6 +1208,7 @@ export class Panzoom extends Base {
 
     this.velocity = {
       x: 0,
+      metaX: 0,
       y: 0,
       scale: 0,
     };

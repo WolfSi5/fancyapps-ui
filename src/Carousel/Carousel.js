@@ -395,6 +395,7 @@ export class Carousel extends Base {
 
     this.Panzoom.panTo({
       x,
+      metaX: x,
       y,
       friction,
       ignoreBounds: true,
@@ -827,7 +828,7 @@ export class Carousel extends Base {
    * @param {Object} [params] - Object containing additional options
    */
   slideToClosest(params = {}) {
-    let [, nextPageIndex] = this.getPageFromPosition(this.Panzoom.content.x * -1);
+    let [, nextPageIndex] = this.getPageFromPosition(this.Panzoom.content.metaX * -1);
 
     this.slideTo(nextPageIndex, params);
   }
