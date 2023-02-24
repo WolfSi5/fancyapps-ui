@@ -1,5 +1,3 @@
-import { isPlainObject } from "../../../shared/utils/isPlainObject.js";
-
 const defaults = {
   timeout: 3000,
   hoverPause: true,

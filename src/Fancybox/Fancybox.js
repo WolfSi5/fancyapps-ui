@@ -423,6 +423,7 @@ class Fancybox extends Base {
           l10n: this.option("l10n"),
 
           Dots: false,
+          Autoplay: false,
           Navigation: {
             classNames: {
               main: "fancybox__nav",
