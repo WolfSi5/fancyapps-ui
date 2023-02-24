@@ -98,7 +98,3 @@ export class Autoplay {
 
 // Expose defaults
 Autoplay.defaults = defaults;
-
-if (typeof Carousel !== "undefined" && isPlainObject(Carousel.Plugins)) {
-  Carousel.Plugins.Autoplay = Autoplay;
-}
